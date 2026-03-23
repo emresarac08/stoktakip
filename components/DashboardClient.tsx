@@ -5,8 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import {
   Package, Plus, LogOut, AlertTriangle, CheckCircle,
-  Pencil, Trash2, X, Save, TrendingDown, TrendingUp, BarChart3
+  Pencil, Trash2, X, Save, TrendingDown, TrendingUp, BarChart3, FileDown
 } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import type { User } from '@supabase/supabase-js'
 
 interface Product {
@@ -24,7 +25,7 @@ interface Props {
   initialProducts: Product[]
 }
 
-const UNITS = ['adet', 'kg', 'litre', 'kutu', 'paket', 'metre']
+const UNITS = ['adet', 'kg', 'litre', 'cl', 'kutu', 'paket', 'metre']
 
 export default function DashboardClient({ user, initialProducts }: Props) {
   const [products, setProducts] = useState<Product[]>(initialProducts)
@@ -53,6 +54,23 @@ export default function DashboardClient({ user, initialProducts }: Props) {
     await supabase.auth.signOut()
     router.push('/auth/login')
     router.refresh()
+  }
+
+  const handleExportExcel = () => {
+    const rows = products.map(p => ({
+      'Ürün Adı': p.name,
+      'Mevcut Miktar': p.quantity,
+      'Birim': p.unit,
+      'Kritik Eşik': p.critical_threshold,
+      'Durum': p.quantity <= p.critical_threshold ? 'KRİTİK' : 'Yeterli',
+      'Eklenme Tarihi': new Date(p.created_at).toLocaleDateString('tr-TR'),
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(rows)
+    ws['!cols'] = [{ wch: 25 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 18 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Stok Listesi')
+    XLSX.writeFile(wb, `stok-listesi-${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.xlsx`)
   }
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -206,13 +224,24 @@ export default function DashboardClient({ user, initialProducts }: Props) {
         {/* Add Button */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-gray-300">Ürünler</h2>
-          <button
-            onClick={() => { setShowAddForm(true); setEditingId(null); resetForm() }}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
-          >
-            <Plus size={16} />
-            Ürün Ekle
-          </button>
+          <div className="flex items-center gap-2">
+            {products.length > 0 && (
+              <button
+                onClick={handleExportExcel}
+                className="flex items-center gap-2 bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              >
+                <FileDown size={16} />
+                Excel
+              </button>
+            )}
+            <button
+              onClick={() => { setShowAddForm(true); setEditingId(null); resetForm() }}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+            >
+              <Plus size={16} />
+              Ürün Ekle
+            </button>
+          </div>
         </div>
 
         {/* Add Form */}
@@ -351,7 +380,7 @@ function ProductForm({
   onCancel: () => void
   submitLabel: string
 }) {
-  const UNITS = ['adet', 'kg', 'litre', 'kutu', 'paket', 'metre']
+  const UNITS = ['adet', 'kg', 'litre', 'cl', 'kutu', 'paket', 'metre']
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
