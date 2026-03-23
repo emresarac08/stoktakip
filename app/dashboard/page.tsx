@@ -13,6 +13,8 @@ interface Product {
   quantity: number
   critical_threshold: number
   unit: string
+  category: string
+  subcategory: string
   created_at: string
 }
 
